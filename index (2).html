@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Color Prediction Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f0f0f0;
+      padding: 30px;
+    }
+    .container {
+      background: #fff;
+      padding: 25px;
+      border-radius: 15px;
+      max-width: 500px;
+      margin: auto;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+    #colorBox {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      margin: 20px auto;
+    }
+    button {
+      padding: 15px 25px;
+      font-size: 18px;
+      border: none;
+      border-radius: 10px;
+      margin: 5px;
+      color: white;
+      cursor: pointer;
+    }
+    .green { background: #27ae60; }
+    .red { background: #e74c3c; }
+    .violet { background: #8e44ad; }
+    #result { margin-top: 15px; font-size: 20px; font-weight: bold; }
+    #wallet { font-size: 18px; margin-bottom: 10px; }
+    .history {
+      margin-top: 25px;
+      text-align: left;
+    }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+      padding: 5px 10px;
+      background: #f8f8f8;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Color Game</h2>
+    <div id="wallet">Wallet: Loading...</div>
+    <h3>Period: <span id="period">...</span></h3>
+    <div id="colorBox"></div>
+    <div id="currentColor">Waiting...</div>
+    <p>Next in <span id="countdown">15</span> seconds</p>
+
+    <button class="green" onclick="join('Green')">Join Green</button>
+    <button class="violet" onclick="join('Violet')">Join Violet</button>
+    <button class="red" onclick="join('Red')">Join Red</button>
+
+    <div id="result"></div>
+
+    <div class="history">
+      <h4>History</h4>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <script>
+    const colors = ['Green', 'Violet', 'Red'];
+    const colorHex = {
+      Green: '#27ae60',
+      Violet: '#8e44ad',
+      Red: '#e74c3c'
+    };
+
+    let countdown = 15;
+    let period = Math.floor(Date.now() / 1000);
+    let userChoice = null;
+    let wallet = 0;
+
+    function updatePeriod() {
+      period = Math.floor(Date.now() / 1000);
+      document.getElementById('period').innerText = period;
+    }
+
+    function updateWallet() {
+      fetch('wallet_api.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'action=get'
+      })
+      .then(res => res.text())
+      .then(balance => {
+        wallet = parseInt(balance);
+        document.getElementById('wallet').innerText = `Wallet: ${wallet} coins`;
+      });
+    }
+
+    function showRandomColor() {
+      updatePeriod();
+
+      const currentColor = colors[Math.floor(Math.random() * colors.length)];
+      document.getElementById('colorBox').style.backgroundColor = colorHex[currentColor];
+      document.getElementById('currentColor').innerText = currentColor;
+
+      // Result handling
+      if (userChoice) {
+        if (userChoice === currentColor) {
+          document.getElementById('result').innerHTML = `<span style="color:green;">🎉 You Win!</span>`;
+          fetch('wallet_api.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'action=reward'
+          }).then(() => updateWallet());
+        } else {
+          document.getElementById('result').innerHTML = `<span style="color:red;">❌ You Lose</span>`;
+        }
+        userChoice = null;
+      } else {
+        document.getElementById('result').innerHTML = '';
+      }
+
+      // History
+      const historyList = document.getElementById('historyList');
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      item.innerHTML = `<span>Period: ${period}</span><span style="color: ${colorHex[currentColor]}">${currentColor}</span>`;
+      historyList.prepend(item);
+    }
+
+    function join(color) {
+      if (wallet < 10) {
+        alert("Not enough coins!");
+        return;
+      }
+
+      userChoice = color;
+      document.getElementById('result').innerHTML = `<span style="color:#2980b9;">✅ You joined: ${color}</span>`;
+
+      fetch('wallet_api.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'action=deduct'
+      }).then(() => updateWallet());
+    }
+
+    // Countdown & color change
+    showRandomColor();
+    updateWallet();
+    setInterval(() => {
+      countdown--;
+      document.getElementById('countdown').innerText = countdown;
+      if (countdown === 0) {
+        countdown = 15;
+        showRandomColor();
+      }
+    }, 1000);
+  </script>
+</body>
+</html>
